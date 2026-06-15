@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCADA Bridge Lab</title>
+<style>
+:root{
+  --bg-primary:#0a0e14; --bg-panel:#0d1520; --bg-panel-header:#131d2a;
+  --border-color:#1e3048; --text-primary:#c8d6e5; --text-secondary:#5c7a99; --text-bright:#e8f0f8;
+  --accent-blue:#2a7fff; --accent-green:#00e676; --accent-amber:#ffb300; --accent-cyan:#00e5ff; --accent-purple:#b061ff;
+  --mono:ui-monospace,'DejaVu Sans Mono','Liberation Mono',Consolas,monospace;
+  --sans:'DejaVu Sans Condensed','Liberation Sans Narrow','Roboto Condensed','Segoe UI',sans-serif;
+  --head:'DejaVu Sans','Liberation Sans','Arial Narrow',Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--sans);min-height:100vh;
+  display:flex;flex-direction:column;
+  background-image:radial-gradient(circle at 20% 0%,rgba(42,127,255,0.06),transparent 45%),
+                   radial-gradient(circle at 85% 90%,rgba(176,97,255,0.05),transparent 40%);}
+header{height:54px;border-bottom:1px solid var(--border-color);background:var(--bg-panel-header);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;}
+header .brand{display:flex;align-items:center;gap:12px;font-family:var(--head);font-size:15px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:var(--accent-cyan);}
+header .brand svg{width:28px;height:28px;}
+header .meta{font-family:var(--mono);font-size:11px;color:var(--text-secondary);letter-spacing:1px;}
+
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;}
+.lede{text-align:center;max-width:680px;margin-bottom:40px;}
+.lede h1{font-family:var(--head);font-size:30px;font-weight:700;color:var(--text-bright);letter-spacing:1px;margin-bottom:12px;}
+.lede h1 span{color:var(--accent-cyan);}
+.lede p{font-size:15px;color:var(--text-secondary);line-height:1.6;}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:22px;width:100%;max-width:920px;}
+@media(max-width:760px){.cards{grid-template-columns:1fr;}}
+.card{display:block;text-decoration:none;color:inherit;background:var(--bg-panel);border:1px solid var(--border-color);
+  padding:26px 24px;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;}
+.card:hover{transform:translateY(-3px);}
+.card.rail:hover{border-color:var(--accent-blue);box-shadow:0 10px 34px rgba(42,127,255,0.18);}
+.card.trainer:hover{border-color:var(--accent-purple);box-shadow:0 10px 34px rgba(176,97,255,0.18);}
+.card .ribbon{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;}
+.card.rail .ribbon{color:var(--accent-blue);} .card.trainer .ribbon{color:var(--accent-purple);}
+.card .viz{height:96px;margin-bottom:18px;display:flex;align-items:center;justify-content:center;}
+.card h2{font-family:var(--head);font-size:19px;color:var(--text-bright);margin-bottom:8px;letter-spacing:.5px;}
+.card p{font-size:13px;color:var(--text-secondary);line-height:1.55;margin-bottom:16px;}
+.card .go{font-family:var(--mono);font-size:12px;display:inline-flex;align-items:center;gap:8px;}
+.card.rail .go{color:var(--accent-blue);} .card.trainer .go{color:var(--accent-purple);}
+.card .tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;color:var(--text-secondary);
+  border:1px solid var(--border-color);padding:2px 7px;border-radius:2px;}
+
+.note{margin-top:34px;max-width:920px;width:100%;border:1px solid var(--border-color);background:rgba(13,21,32,0.6);
+  padding:14px 18px;font-family:var(--mono);font-size:12px;color:var(--text-secondary);line-height:1.6;}
+.note b{color:var(--accent-cyan);font-weight:400;}
+footer{border-top:1px solid var(--border-color);padding:12px 24px;font-family:var(--mono);font-size:11px;
+  color:var(--text-secondary);display:flex;justify-content:space-between;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent-green);display:inline-block;margin-right:6px;
+  box-shadow:0 0 8px rgba(0,230,118,0.6);}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 28 28" fill="none"><path d="M2 20 L8 20 L8 12 L14 12 L14 20 L20 20 L20 8 L26 8" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="12" r="2" fill="currentColor"/><circle cx="20" cy="8" r="2" fill="currentColor"/></svg>
+    SCADA Bridge Lab
+  </div>
+  <div class="meta"><span class="dot"></span>OFFLINE TRAINING ENVIRONMENT</div>
+</header>
+
+<main>
+  <div class="lede">
+    <h1>Donovia Rail <span>Movable Bridge</span> Control</h1>
+    <p>Two views of the same eight-bridge rail network — a dispatcher HMI and a subsystem-level mechanical &amp; SCADA trainer. Open or close Congaree or Cooper in one and the other mirrors it live.</p>
+  </div>
+
+  <div class="cards">
+    <a class="card rail" href="/rail.html">
+      <div class="ribbon">Dispatcher · Network Scale</div>
+      <div class="viz">
+        <svg viewBox="0 0 220 96" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="70" x2="210" y2="70" stroke="#3a5068" stroke-width="3"/>
+          <rect x="40" y="62" width="16" height="16" rx="2" fill="#0a2a3a" stroke="#5a8aaa"/>
+          <rect x="150" y="62" width="16" height="16" rx="2" fill="#0a2a3a" stroke="#5a8aaa"/>
+          <circle cx="92" cy="70" r="4" fill="#00e676"/><circle cx="120" cy="70" r="4" fill="#ffb300"/>
+          <rect x="78" y="40" width="64" height="6" rx="2" fill="#2a2000" stroke="#ffb300" stroke-width="1.5" transform="rotate(-22 78 43)"/>
+          <text x="110" y="92" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#5c7a99">8 BRIDGES · TRAINS · SIGNALS</text>
+        </svg>
+      </div>
+      <h2>Donovia Rail Network Control</h2>
+      <p>The operator HMI: live map of trains, switches, signals, and all eight movable bridges across the network. Command bridge open/close at the dispatcher level.</p>
+      <div class="go">Launch dispatcher view →</div>
+      <div class="tags"><span class="tag">HMI</span><span class="tag">SITUATIONAL AWARENESS</span><span class="tag">4 BASCULE · 4 SWING</span></div>
+    </a>
+
+    <a class="card trainer" href="/trainer.html">
+      <div class="ribbon">Maintainer · Attacker · Defender</div>
+      <div class="viz">
+        <svg viewBox="0 0 220 96" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="72" x2="210" y2="72" stroke="#3a5068" stroke-width="2"/>
+          <circle cx="60" cy="72" r="6" fill="#0d1520" stroke="#00e676" stroke-width="2"/>
+          <rect x="60" y="40" width="70" height="9" rx="2" fill="#06281c" stroke="#00e676" stroke-width="2" transform="rotate(-34 60 72)"/>
+          <circle cx="150" cy="72" r="9" fill="#0d1520" stroke="#b061ff" stroke-width="2"/><circle cx="150" cy="72" r="3" fill="#b061ff"/>
+          <rect x="120" y="68" width="60" height="8" rx="2" fill="#2a103a" stroke="#b061ff" stroke-width="1.5" transform="rotate(28 150 72)"/>
+          <text x="110" y="92" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#5c7a99">SUBSYSTEMS · MODBUS · ATT&amp;CK</text>
+        </svg>
+      </div>
+      <h2>Bridge Mechanical &amp; SCADA Trainer</h2>
+      <p>Congaree (bascule) and Cooper (swing) at full mechanical fidelity — every lock, brake, limit, and sensor — over a live Modbus map with a network console and guided ICS attack scenarios.</p>
+      <div class="go">Launch mechanical trainer →</div>
+      <div class="tags"><span class="tag">MODBUS/TCP</span><span class="tag">FORCED I/O · SENSOR SPOOF</span><span class="tag">ATT&amp;CK FOR ICS</span></div>
+    </a>
+  </div>
+
+  <div class="note">
+    <b>Live sync:</b> open each app in its own browser tab. Driving Congaree or Cooper open/closed in either one mirrors it in the other. Both must be reached from the same address (this host:port) for sync to work.
+  </div>
+</main>
+
+<footer>
+  <span>Donovia Rail SCADA Bridge Lab · offline ICS/SCADA training</span>
+  <span>17C Cyber Operations</span>
+</footer>
+</body>
+</html>
