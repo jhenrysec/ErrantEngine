@@ -143,7 +143,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=${WEB_ROOT}
-ExecStart=${PYTHON_BIN} -m http.server ${PORT} --bind ${BIND} --directory ${WEB_ROOT}
+ExecStart=${PYTHON_BIN} -m http.server --bind ${BIND} ${PORT}
 Restart=on-failure
 RestartSec=3
 User=${SVC_USER}
