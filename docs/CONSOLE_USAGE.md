@@ -16,7 +16,7 @@ vectors from `Bridge_Usage.md` from a command line.
 Stdlib only — Python 3.8+. No dependencies.
 
 ```bash
-# from inside TrainTracks/
+# from inside ErrantEngine/
 ./install-console.sh          # -> /usr/local/bin (root) or ~/.local/bin (user)
 errantengine-console           # launch
 
