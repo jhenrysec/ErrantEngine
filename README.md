@@ -2,7 +2,7 @@
 
 **An offline ICS/SCADA movable-bridge cyber range for the Donovia Rail Network scenario.**
 
-TrainTracks teaches how a network command actually reaches — and breaks — the mechanical guts of a
+ErrantEngine teaches how a network command actually reaches — and breaks — the mechanical guts of a
 movable railroad bridge. It pairs a dispatcher-scale rail HMI with a subsystem-level mechanical +
 Modbus trainer, syncs their bridge state live, and ships guided attack/defense scenarios mapped to
 MITRE ATT&CK for ICS. A terminal version of the trainer (**ErrantEngine**) is included for a
@@ -18,7 +18,7 @@ reports released while it is physically engaged.
 ![Dependencies](https://img.shields.io/badge/dependencies-none-success)
 ![Stack](https://img.shields.io/badge/stack-vanilla%20HTML%2FJS%2FSVG%20%2B%20py3%20stdlib-131d2a)
 
-> **Defensive training simulator.** TrainTracks contains no live protocol stack, no real device I/O,
+> **Defensive training simulator.** ErrantEngine contains no live protocol stack, no real device I/O,
 > and no exploit tooling. The browser apps model an idealized bridge controller in-page; the
 > ErrantEngine console mutates an in-memory model only and has **no network capability** (no socket,
 > no Modbus wire protocol, no target host). The "attack" scenarios exist to make the **detection and
@@ -139,7 +139,7 @@ Stdlib-only (Python 3.8+). Command + scenario reference: `docs/CONSOLE_USAGE.md`
 ## Repository layout
 
 ```
-TrainTracks/
+ErrantEngine/
 ├── index.html                       # launcher
 ├── rail.html                        # Donovia Rail Network Control (dispatcher HMI, w/ SS-24 SCALPEL)
 ├── trainer.html                     # Bridge Mechanical & SCADA Trainer
