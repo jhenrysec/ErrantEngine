@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Mechanical & SCADA Trainer — Donovia Rail</title>
+<style>
+/* Offline font stacks — no network calls. Matches Donovia Rail Network Control System. */
+:root{
+  --bg-primary:#0a0e14; --bg-secondary:#111923; --bg-panel:#0d1520; --bg-panel-header:#131d2a;
+  --border-color:#1e3048; --border-active:#2a7fff;
+  --text-primary:#c8d6e5; --text-secondary:#5c7a99; --text-bright:#e8f0f8;
+  --accent-blue:#2a7fff; --accent-green:#00e676; --accent-red:#ff3d3d; --accent-amber:#ffb300; --accent-cyan:#00e5ff;
+  --accent-purple:#b061ff;
+  --glow-blue:0 0 10px rgba(42,127,255,0.5); --glow-green:0 0 10px rgba(0,230,118,0.5);
+  --glow-red:0 0 10px rgba(255,61,61,0.5); --glow-amber:0 0 10px rgba(255,179,0,0.5);
+  --mono:ui-monospace,'DejaVu Sans Mono','Liberation Mono',Consolas,monospace;
+  --sans:'DejaVu Sans Condensed','Liberation Sans Narrow','Roboto Condensed','Segoe UI',sans-serif;
+  --head:'DejaVu Sans','Liberation Sans','Arial Narrow',Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--sans);height:100vh;width:100vw;overflow:hidden;}
+
+/* TOP BAR */
+#topbar{height:48px;background:var(--bg-panel-header);border-bottom:1px solid var(--border-color);
+  display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;z-index:50;}
+#topbar .logo{font-family:var(--head);font-size:14px;font-weight:700;color:var(--accent-cyan);
+  letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:10px;}
+#topbar .logo svg{width:26px;height:26px;}
+#topbar .status-bar{display:flex;gap:20px;font-family:var(--mono);font-size:12px;}
+.status-item{display:flex;align-items:center;gap:6px;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent-green);box-shadow:var(--glow-green);animation:pulse-dot 2s ease-in-out infinite;}
+.status-dot.warn{background:var(--accent-amber);box-shadow:var(--glow-amber);}
+.status-dot.error{background:var(--accent-red);box-shadow:var(--glow-red);}
+@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.5;}}
+
+/* LAYOUT */
+#main{display:grid;grid-template-columns:240px 1fr 340px;height:calc(100vh - 48px - 210px);}
+@media(max-width:1200px){#main{grid-template-columns:210px 1fr 300px;}}
+
+.col{overflow-y:auto;}
+#left-col{background:var(--bg-panel);border-right:1px solid var(--border-color);}
+#right-col{background:var(--bg-panel);border-left:1px solid var(--border-color);}
+#center-col{display:flex;flex-direction:column;background:var(--bg-primary);overflow:hidden;}
+
+.panel-header{padding:9px 14px;background:var(--bg-panel-header);font-family:var(--head);font-size:10px;
+  letter-spacing:2px;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border-color);
+  display:flex;justify-content:space-between;align-items:center;}
+.panel-body{padding:10px 12px;}
+
+/* bridge selector */
+.bridge-pick{padding:10px 12px;border:1px solid var(--border-color);margin:8px 12px;cursor:pointer;
+  transition:all .15s;display:flex;flex-direction:column;gap:3px;background:var(--bg-secondary);}
+.bridge-pick:hover{border-color:var(--accent-blue);}
+.bridge-pick.active{border-color:var(--accent-cyan);box-shadow:var(--glow-blue);}
+.bridge-pick .bp-name{font-size:13px;color:var(--text-bright);font-weight:600;}
+.bridge-pick .bp-type{font-family:var(--mono);font-size:10px;color:var(--accent-cyan);letter-spacing:1px;}
+.bridge-pick .bp-state{font-family:var(--mono);font-size:10px;}
+
+/* telemetry list */
+.subsys{font-family:var(--mono);font-size:11px;padding:5px 14px;display:flex;justify-content:space-between;
+  align-items:center;border-bottom:1px solid rgba(30,48,72,0.35);gap:6px;}
+.subsys .ss-name{color:var(--text-secondary);}
+.subsys .ss-val{font-weight:600;text-align:right;}
+.v-green{color:var(--accent-green);} .v-red{color:var(--accent-red);}
+.v-amber{color:var(--accent-amber);} .v-cyan{color:var(--accent-cyan);}
+.v-dim{color:var(--text-secondary);} .v-purple{color:var(--accent-purple);}
+.dmg-bar{height:4px;background:var(--border-color);border-radius:2px;overflow:hidden;width:54px;flex-shrink:0;}
+.dmg-bar > div{height:100%;background:var(--accent-green);transition:width .2s,background .2s;}
+
+/* center schematic */
+#schematic-wrap{flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:12px;min-height:0;}
+#schematic-wrap svg{width:100%;height:100%;max-height:100%;}
+#schematic-title{position:absolute;top:10px;left:16px;font-family:var(--head);font-size:11px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text-secondary);}
+#angle-badge{position:absolute;top:10px;right:16px;font-family:var(--mono);font-size:13px;color:var(--accent-cyan);
+  border:1px solid var(--border-color);padding:3px 10px;background:rgba(13,21,32,0.8);}
+#sim-controls{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;
+  background:rgba(13,21,32,0.9);border:1px solid var(--border-color);padding:5px 12px;}
+#sim-controls .sim-label{font-family:var(--head);font-size:9px;letter-spacing:2px;color:var(--text-secondary);text-transform:uppercase;}
+#sim-controls button{background:none;border:1px solid var(--border-color);color:var(--text-primary);padding:3px 9px;
+  font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;}
+#sim-controls button:hover,#sim-controls button.active{border-color:var(--accent-cyan);color:var(--accent-cyan);}
+
+/* control panel right */
+.ctrl-section{padding:9px 12px;border-bottom:1px solid rgba(30,48,72,0.4);}
+.ctrl-label{font-family:var(--head);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:6px;}
+.ctrl-btn{display:block;width:100%;background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-primary);
+  padding:8px 10px;margin-bottom:6px;font-family:var(--sans);font-size:12px;cursor:pointer;transition:all .15s;text-align:left;}
+.ctrl-btn:hover:not(:disabled){border-color:var(--accent-blue);background:rgba(42,127,255,0.08);}
+.ctrl-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.ctrl-btn.success{border-color:rgba(0,230,118,0.4);} .ctrl-btn.success:hover:not(:disabled){background:rgba(0,230,118,0.1);border-color:var(--accent-green);}
+.ctrl-btn.danger{border-color:rgba(255,61,61,0.4);} .ctrl-btn.danger:hover:not(:disabled){background:rgba(255,61,61,0.1);border-color:var(--accent-red);}
+.ctrl-btn.amber{border-color:rgba(255,179,0,0.4);} .ctrl-btn.amber:hover:not(:disabled){background:rgba(255,179,0,0.1);border-color:var(--accent-amber);}
+
+/* register map table */
+#regtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10.5px;}
+#regtable th{text-align:left;color:var(--text-secondary);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--border-color);
+  position:sticky;top:0;background:var(--bg-panel);font-size:9px;letter-spacing:1px;text-transform:uppercase;}
+#regtable td{padding:3px 6px;border-bottom:1px solid rgba(30,48,72,0.3);white-space:nowrap;}
+#regtable tr:hover{background:rgba(42,127,255,0.06);}
+.reg-addr{color:var(--accent-cyan);}
+.reg-class{font-size:8.5px;letter-spacing:.5px;padding:1px 4px;border-radius:2px;}
+.cls-cmd{color:var(--accent-blue);border:1px solid rgba(42,127,255,0.4);}
+.cls-out{color:var(--accent-amber);border:1px solid rgba(255,179,0,0.4);}
+.cls-hreg{color:var(--accent-green);border:1px solid rgba(0,230,118,0.35);}
+.cls-ireg{color:var(--text-secondary);border:1px solid var(--border-color);}
+.reg-spoof{color:var(--accent-purple)!important;font-weight:700;}
+.reg-forced{color:var(--accent-amber)!important;font-weight:700;}
+
+/* bottom: log + console */
+#bottom{height:210px;display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border-color);}
+#log-pane,#console-pane{display:flex;flex-direction:column;min-height:0;}
+#console-pane{border-left:1px solid var(--border-color);}
+.pane-head{padding:6px 12px;background:var(--bg-panel-header);font-family:var(--head);font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;}
+#log-scroll{flex:1;overflow-y:auto;background:var(--bg-primary);}
+.log-entry{padding:2px 12px;font-family:var(--mono);font-size:10px;color:var(--text-secondary);border-bottom:1px solid rgba(30,48,72,0.25);}
+.log-entry .lt{color:var(--text-secondary);margin-right:8px;}
+.log-entry.warn{color:var(--accent-amber);} .log-entry.error{color:var(--accent-red);}
+.log-entry.info{color:var(--accent-cyan);} .log-entry.attack{color:var(--accent-purple);}
+.log-entry.ok{color:var(--accent-green);}
+
+#console-scroll{flex:1;overflow-y:auto;background:#060a10;padding:6px 10px;font-family:var(--mono);font-size:11px;line-height:1.5;}
+.con-line{white-space:pre-wrap;word-break:break-word;}
+.con-in{color:var(--accent-cyan);} .con-out{color:var(--text-primary);}
+.con-err{color:var(--accent-red);} .con-ok{color:var(--accent-green);} .con-warn{color:var(--accent-amber);}
+.con-attack{color:var(--accent-purple);}
+#console-input-row{display:flex;border-top:1px solid var(--border-color);background:#060a10;}
+#console-prompt{padding:7px 4px 7px 10px;font-family:var(--mono);font-size:12px;color:var(--accent-purple);}
+#console-input{flex:1;background:none;border:none;color:var(--text-bright);font-family:var(--mono);font-size:12px;padding:7px 10px 7px 2px;outline:none;}
+
+/* scenarios modal */
+#scn-btn{background:none;border:1px solid var(--accent-purple);color:var(--accent-purple);padding:3px 10px;
+  font-family:var(--mono);font-size:11px;cursor:pointer;}
+#scn-btn:hover{background:rgba(176,97,255,0.12);}
+#modal-bg{position:fixed;inset:0;background:rgba(4,7,11,0.82);z-index:200;display:none;align-items:center;justify-content:center;}
+#modal-bg.show{display:flex;}
+#modal{width:760px;max-width:94vw;max-height:86vh;overflow-y:auto;background:var(--bg-panel);border:1px solid var(--accent-purple);box-shadow:0 0 40px rgba(176,97,255,0.25);}
+#modal .m-head{padding:14px 20px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;}
+#modal .m-head h2{font-family:var(--head);font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--accent-purple);}
+#modal .m-close{background:none;border:1px solid var(--border-color);color:var(--text-primary);cursor:pointer;padding:4px 10px;font-family:var(--mono);}
+.scn{border-bottom:1px solid var(--border-color);padding:14px 20px;}
+.scn h3{font-size:14px;color:var(--text-bright);margin-bottom:4px;}
+.scn .scn-meta{font-family:var(--mono);font-size:10px;color:var(--accent-cyan);margin-bottom:8px;letter-spacing:.5px;}
+.scn .scn-attack{color:var(--accent-purple);}
+.scn p{font-size:12.5px;color:var(--text-primary);line-height:1.55;margin-bottom:8px;}
+.scn .scn-steps{background:#060a10;border:1px solid var(--border-color);padding:10px 12px;font-family:var(--mono);
+  font-size:11px;color:var(--text-secondary);line-height:1.7;margin-bottom:8px;white-space:pre-wrap;}
+.scn .scn-steps b{color:var(--accent-cyan);}
+.scn-run{background:none;border:1px solid var(--accent-purple);color:var(--accent-purple);padding:5px 12px;
+  font-family:var(--mono);font-size:11px;cursor:pointer;margin-right:6px;}
+.scn-run:hover{background:rgba(176,97,255,0.12);}
+.scn-lesson{font-size:11.5px;color:var(--accent-green);border-left:2px solid var(--accent-green);padding-left:10px;margin-top:6px;}
+
+/* notification */
+#notif-wrap{position:fixed;top:58px;right:18px;z-index:150;display:flex;flex-direction:column;gap:8px;}
+.notif{background:var(--bg-panel);border:1px solid var(--accent-blue);padding:10px 16px;font-size:12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5);animation:slideIn .25s ease-out;max-width:320px;}
+.notif.warn{border-color:var(--accent-amber);} .notif.error{border-color:var(--accent-red);} .notif.attack{border-color:var(--accent-purple);}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-track{background:var(--bg-primary);} ::-webkit-scrollbar-thumb{background:var(--border-color);border-radius:3px;}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px;}
+.toggle{width:42px;height:20px;border-radius:10px;background:var(--border-color);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.toggle.on{background:var(--accent-red);}
+.toggle .knob{width:16px;height:16px;border-radius:50%;background:var(--text-bright);position:absolute;top:2px;left:2px;transition:left .2s;}
+.toggle.on .knob{left:24px;}
+.hint{font-size:10.5px;color:var(--text-secondary);line-height:1.5;font-family:var(--mono);}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 28 28" fill="none"><path d="M2 20 L8 20 L8 12 L14 12 L14 20 L20 20 L20 8 L26 8" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="8" cy="12" r="2" fill="currentColor"/><circle cx="20" cy="8" r="2" fill="currentColor"/></svg>
+    Bridge Mechanical &amp; SCADA Trainer
+  </div>
+  <div class="status-bar">
+    <div class="status-item"><div class="status-dot" id="plc-dot"></div> <span id="plc-status">PLC Interlocks: ENFORCED</span></div>
+    <div class="status-item"><div class="status-dot" id="bus-dot"></div> <span>Modbus/TCP :502</span></div>
+    <div class="status-item"><div class="status-dot warn" id="fault-dot"></div> <span id="fault-status">0 Faults</span></div>
+    <button id="scn-btn" onclick="openScenarios()">▶ TRAINING SCENARIOS</button>
+  </div>
+</div>
+
+<div id="main">
+  <!-- LEFT: bridge select + telemetry -->
+  <div id="left-col" class="col">
+    <div class="panel-header">Movable Bridges</div>
+    <div id="bridge-list"></div>
+    <div class="panel-header">Subsystem Telemetry</div>
+    <div id="telemetry"></div>
+  </div>
+
+  <!-- CENTER: schematic -->
+  <div id="center-col">
+    <div id="schematic-wrap">
+      <div id="schematic-title">Mechanical Schematic</div>
+      <div id="angle-badge">0%</div>
+      <div id="schematic"></div>
+      <div id="sim-controls">
+        <span class="sim-label">Sim Rate</span>
+        <button onclick="setRate(0)" id="rate-0">❚❚</button>
+        <button onclick="setRate(1)" id="rate-1" class="active">1×</button>
+        <button onclick="setRate(3)" id="rate-3">3×</button>
+        <button onclick="setRate(8)" id="rate-8">8×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: operator controls + register map -->
+  <div id="right-col" class="col">
+    <div class="panel-header">Operator Console <span id="op-mode" class="v-cyan" style="font-family:var(--mono);font-size:10px;"></span></div>
+    <div class="ctrl-section">
+      <div class="ctrl-label">Sequenced Commands (via PLC)</div>
+      <button class="ctrl-btn danger" id="btn-open" onclick="opOpen()">▲ Open Bridge — full safe sequence</button>
+      <button class="ctrl-btn success" id="btn-close" onclick="opClose()">▼ Close Bridge — full safe sequence</button>
+      <button class="ctrl-btn amber" id="btn-stop" onclick="opStop()">⏸ Stop Motion</button>
+    </div>
+    <div class="ctrl-section">
+      <div class="ctrl-label">Lab Conditions</div>
+      <div class="toggle-row"><span>Train on span (occupancy)</span><div class="toggle" id="tg-occ" onclick="toggleOcc()"><div class="knob"></div></div></div>
+      <div class="toggle-row"><span>PLC interlock enforcement</span><div class="toggle on" id="tg-plc" onclick="togglePlc()" style="background:var(--accent-green);"><div class="knob"></div></div></div>
+      <div class="hint">Disabling enforcement models a PLC whose safety logic has been bypassed or mis-programmed — command coils then act like forced outputs.</div>
+    </div>
+    <div class="ctrl-section">
+      <button class="ctrl-btn" onclick="repairBridge()">🔧 Reset / Repair Selected Bridge</button>
+    </div>
+    <div class="panel-header">Modbus Map — <span id="reg-bridge" class="v-cyan" style="font-family:var(--mono);"></span></div>
+    <div style="padding:6px 8px;">
+      <table id="regtable"><thead><tr><th>Addr</th><th>Class</th><th>Point</th><th>Val</th></tr></thead><tbody id="regbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM: log + network console -->
+<div id="bottom">
+  <div id="log-pane">
+    <div class="pane-head"><span>Event Log</span><span id="log-count" class="v-dim">0</span></div>
+    <div id="log-scroll"></div>
+  </div>
+  <div id="console-pane">
+    <div class="pane-head"><span>Network Console — Modbus/TCP master</span><span class="v-purple" style="color:var(--accent-purple);">attacker@kali</span></div>
+    <div id="console-scroll"></div>
+    <div id="console-input-row">
+      <span id="console-prompt">modbus&gt;</span>
+      <input id="console-input" autocomplete="off" spellcheck="false" placeholder="type 'help' — e.g. scan / read ireg 30001 / write coil 00101 1 / spoof ireg 30005 0">
+    </div>
+  </div>
+</div>
+
+<div id="notif-wrap"></div>
+
+<!-- SCENARIOS MODAL -->
+<div id="modal-bg" onclick="if(event.target===this)closeScenarios()">
+  <div id="modal">
+    <div class="m-head"><h2>17C ICS Attack Scenarios</h2><button class="m-close" onclick="closeScenarios()">✕ Close</button></div>
+    <div id="scn-list"></div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   BRIDGE MECHANICAL & SCADA TRAINER  — self-contained, offline.
+   Models bascule + swing movable bridges at subsystem fidelity with a
+   Modbus register map as the network attack surface.
+   ════════════════════════════════════════════════════════════════════════ */
+
+// ── Tunables ──────────────────────────────────────────────────────────────
+const FULL_TRAVEL_SEC = 14;     // sim-seconds to traverse full angle at 100% speed
+const NOMINAL_CURRENT = 42;     // A, motor under normal load
+const STALL_CURRENT   = 265;    // A, motor driving against a bind
+const DMG_PER_SEC_BIND = 9;     // damage/sec driving against engaged lock
+const DMG_PER_SEC_OVERTRAVEL = 16;
+const LOCK_TRANSIT_SEC = 2.2;   // time for a lock/wedge/lift to move engage<->release
+
+// ── State model factories ─────────────────────────────────────────────────
+function lockUnit(state){ return { cmd:state, pos:(state==='engaged'?1:0), faulted:false }; }
+// pos: 1 = engaged/extended/up, 0 = released/retracted/down
+
+function makeBascule(){
+  return {
+    id:'congaree', name:'Congaree River Bridge', type:'bascule', angleMax:78,
+    angle:0, op:null, opStep:0, opTimer:0,
+    motor:{energized:false, dir:0, current:0}, brake:'set', horn:false, gates:'up', railSignal:'clear',
+    occupied:false,
+    locks:{ spanLock:lockUnit('engaged'), tailLock:lockUnit('engaged') },
+    damage:{ rackPinion:0, spanLock:0, tailLock:0, trunnion:0, shoes:0, structure:0 },
+    cwMass:'balanced'
+  };
+}
+function makeSwing(){
+  return {
+    id:'cooper', name:'Cooper River Bridge', type:'swing', angleMax:90,
+    angle:0, op:null, opStep:0, opTimer:0,
+    motor:{energized:false, dir:0, current:0}, brake:'set', horn:false, gates:'up', railSignal:'clear',
+    occupied:false, centeringLatch:'engaged',
+    locks:{ railLock:lockUnit('engaged'), endLift:lockUnit('engaged'), wedge:lockUnit('engaged') },
+    damage:{ rackPinion:0, railLock:0, endLift:0, wedge:0, pivot:0, structure:0 },
+  };
+}
+
+const bridges = { congaree:makeBascule(), cooper:makeSwing() };
+let sel = 'congaree';
+let plcEnforced = true;
+let simRate = 1;
+let faultCount = 0;
+let driveSpeed = 100; // % (holding reg 40002)
+let applyingRemote = false; // true while applying a remote (cross-file) state update
+
+function B(){ return bridges[sel]; }
+function isMoving(b){ return b.motor.energized && Math.abs(b.motor.dir)>0; }
+function anyLockEngaged(b){
+  return Object.entries(b.locks).filter(([k,l])=> l.pos>0.05 && !l.faulted).map(([k])=>k);
+}
+
+// ── Sensor truth vs. spoofing ─────────────────────────────────────────────
+const spoof = {};   // key `${id}:${addr}` -> value   (held input register)
+const forced = {};  // key `${id}:${addr}` -> value   (held output coil)
+function keyOf(addr){ return sel+':'+addr; }
+
+// ── Physics tick ──────────────────────────────────────────────────────────
+function physics(b, dt){
+  applyForcedOutputs(b);
+
+  // lock/wedge/lift physical transitions toward commanded position
+  for(const k in b.locks){
+    const l=b.locks[k];
+    if(l.faulted) continue;
+    const target=(l.cmd==='engaged')?1:0;
+    if(l.pos<target) l.pos=Math.min(target,l.pos+dt/LOCK_TRANSIT_SEC);
+    else if(l.pos>target) l.pos=Math.max(target,l.pos-dt/LOCK_TRANSIT_SEC);
+  }
+
+  const m=b.motor;
+  let blocked=false, bindList=[];
+  if(m.energized && m.dir!==0){
+    if(b.brake==='set'){ blocked=true; bindList.push('brake'); }
+    const eng=anyLockEngaged(b);
+    if(eng.length){ blocked=true; bindList=bindList.concat(eng); }
+    if(b.type==='swing' && b.centeringLatch==='engaged'){ blocked=true; bindList.push('centeringLatch'); }
+  }
+
+  if(m.energized && m.dir!==0 && !blocked){
+    if(b.damage.rackPinion>=100){
+      m.current=STALL_CURRENT*0.6; // stripped drive spins, no motion
+    } else {
+      const rate=(b.angleMax/FULL_TRAVEL_SEC)*(driveSpeed/100);
+      b.angle+=m.dir*rate*dt;
+      m.current=NOMINAL_CURRENT*(0.6+0.4*(driveSpeed/100));
+      // PLC stops the drive when it READS the relevant limit switch (spoofable).
+      // When the attacker forced the drive output, the PLC is out of the loop entirely.
+      if(plcRespectsLimits(b)){
+        if(m.dir>0 && sensor(b,'30004')===1){ if(!((b.id+':30004') in spoof)) b.angle=b.angleMax; else b.angle=Math.min(b.angle,b.angleMax); stopMotor(b,'reached FULL-OPEN limit'); }
+        else if(m.dir<0 && sensor(b,'30003')===1){ if(!((b.id+':30003') in spoof)) b.angle=0; else b.angle=Math.max(b.angle,0); seat(b); }
+      }
+      // Physical hard stops + over-travel damage — always apply (no software can wish away steel).
+      if(b.angle>b.angleMax){ b.angle=b.angleMax; b.damage.structure=clamp(b.damage.structure+DMG_PER_SEC_OVERTRAVEL*dt); m.current=STALL_CURRENT; maybeFault(b,'_ot','OVER-TRAVEL past open limit — span driven into end stops, structural damage'); }
+      if(b.angle<0){ b.angle=0; b.damage.structure=clamp(b.damage.structure+DMG_PER_SEC_OVERTRAVEL*dt); m.current=STALL_CURRENT; maybeFault(b,'_ss','SEAT SLAM — leaf driven past seat into hard stop'); }
+    }
+  } else if(m.energized && blocked){
+    m.current=STALL_CURRENT;
+    b.damage.rackPinion=clamp(b.damage.rackPinion+DMG_PER_SEC_BIND*dt);
+    bindList.forEach(k=>{ if(b.damage[k]!==undefined) b.damage[k]=clamp(b.damage[k]+DMG_PER_SEC_BIND*dt); });
+    if(b.damage.rackPinion>=100) maybeFault(b,'_rp','rack/pinion STRIPPED — drive inoperable');
+    bindList.forEach(k=>{ const l=b.locks[k]; if(l && b.damage[k]>=100 && !l.faulted){ l.faulted=true; flagFault(b,k+' SHEARED — cannot secure for traffic'); } });
+  } else {
+    m.current=0;
+    if(b.brake==='released' && !m.energized && anyLockEngaged(b).length===0 && !(b.type==='swing'&&b.centeringLatch==='engaged')){
+      if(b.angle>0.5 && b.angle<b.angleMax-0.5){
+        const drift=(b.type==='bascule'?6:3);
+        b.angle+=drift*dt*(b.type==='bascule'?1:(b._wv||(b._wv=Math.random()<0.5?1:-1)));
+        b.angle=Math.max(0,Math.min(b.angleMax,b.angle));
+        maybeFault(b,'_drift',(b.type==='bascule'?'LEAF RUNAWAY':'SPAN WEATHERVANE')+' — brake released with no drive');
+      }
+    } else { b._drift=false; b._wv=0; }
+  }
+
+  if(b.occupied && b.angle>4){ maybeFault(b,'_load','⚠ SPAN MOVED WHILE OCCUPIED — derailment / catastrophic'); if(b._load && b.damage.structure<30) b.damage.structure=clamp(b.damage.structure+30); }
+  else b._load=false;
+
+  if(b.type==='swing' && b.occupied && b.locks.endLift.pos<0.6){ maybeFault(b,'_endl','⚠ END LIFTS RETRACTED UNDER LOAD — span deflection / derail'); }
+  else if(b.type==='swing' && b.locks.endLift.pos>=0.6) b._endl=false;
+
+  if(b.op) stepSequence(b,dt);
+}
+
+function clamp(v){ return Math.max(0,Math.min(100,v)); }
+function plcRespectsLimits(b){ return plcEnforced && !b._forcedMotor; }
+function stopMotor(b,reason){ b.motor.energized=false; b.motor.dir=0; b.motor.current=0; if(reason) log(b.name+': motor stop — '+reason,'info'); }
+function seat(b){ b.motor.energized=false; b.motor.dir=0; b.motor.current=0; log(b.name+': leaf/span seated','info'); }
+function maybeFault(b,flag,msg){ if(!b[flag]){ b[flag]=true; flagFault(b,msg);} }
+function flagFault(b,msg){ log(b.name+': '+msg,'error'); notify(b.name+': '+msg,'error'); recountFaults(); }
+function recountFaults(){
+  faultCount=0;
+  for(const id in bridges){ const b=bridges[id]; for(const k in b.damage){ if(b.damage[k]>=100) faultCount++; } for(const k in b.locks){ if(b.locks[k].faulted) faultCount++; } }
+  document.getElementById('fault-status').textContent=faultCount+' Fault'+(faultCount===1?'':'s');
+  document.getElementById('fault-dot').className='status-dot '+(faultCount>0?'error':'warn');
+}
+
+// ── Sensors (respect spoofing) ─────────────────────────────────────────────
+function rawSensor(b,addr){
+  switch(addr){
+    case '30001': return Math.round(b.angle/b.angleMax*100);
+    case '30002': return Math.round(b.motor.current);
+    case '30003': return (b.angle< b.angleMax*0.01)?1:0;          // SEATED / CENTERED
+    case '30004': return (b.angle> b.angleMax*0.99)?1:0;          // OPEN_LS
+    case '30008': return b.occupied?1:0;                          // SPAN_OCCUPIED
+  }
+  if(b.type==='bascule'){
+    if(addr==='30005') return (b.locks.spanLock.pos<0.1||b.locks.spanLock.faulted)?1:0;
+    if(addr==='30006') return (b.locks.tailLock.pos<0.1||b.locks.tailLock.faulted)?1:0;
+  } else {
+    if(addr==='30005') return (b.locks.railLock.pos<0.1||b.locks.railLock.faulted)?1:0;
+    if(addr==='30006') return (b.locks.endLift.pos<0.1||b.locks.endLift.faulted)?1:0;
+    if(addr==='30007') return (b.locks.wedge.pos<0.1||b.locks.wedge.faulted)?1:0;
+  }
+  return 0;
+}
+function sensor(b,addr){ const k=b.id+':'+addr; return (k in spoof)?spoof[k]:rawSensor(b,addr); }
+
+// ── Forced outputs (bypass PLC) ─────────────────────────────────────────────
+function applyForcedOutputs(b){
+  b._forcedMotor=false;
+  const f=(a)=>{ const k=b.id+':'+a; return (k in forced)?forced[k]:null; };
+  const fo=f('00101'), fc=f('00102');
+  if(fo===1){ b.motor.energized=true; b.motor.dir=+1; b._forcedMotor=true; }
+  else if(fc===1){ b.motor.energized=true; b.motor.dir=-1; b._forcedMotor=true; }
+  else if((fo===0||fc===0)&&!b.op){ b.motor.energized=false; b.motor.dir=0; }
+  const fb=f('00103'); if(fb!==null) b.brake=(fb===1)?'released':'set';
+  const fh=f('00110'); if(fh!==null) b.horn=(fh===1);
+  const fg=f('00111'); if(fg!==null) b.gates=(fg===1)?'down':'up';
+  const lo=(b.type==='bascule')?{'00104':'spanLock','00105':'tailLock'}:{'00104':'railLock','00105':'endLift','00106':'wedge'};
+  for(const a in lo){ const v=f(a); if(v!==null) b.locks[lo[a]].cmd=(v===1)?'released':'engaged'; }
+  if(b.type==='swing'){ const v=f('00107'); if(v!==null) b.centeringLatch=(v===1)?'released':'engaged'; }
+}
+
+// ── Sequence engine (safe operation via PLC) ────────────────────────────────
+function L(b,msg,c){ log(b.name+': '+msg, c||'info'); }
+const SEQS = {
+  bascule:{
+    open:[
+      {do:b=>{b.railSignal='stop';b.horn=true;b.gates='down';L(b,'OPEN: horn, signals STOP, gates lowering','warn');}, done:b=>b.opTimer>1.6},
+      {do:b=>{b.locks.spanLock.cmd='released';b.locks.tailLock.cmd='released';L(b,'OPEN: driving span + tail locks to RELEASED');}, done:b=>sensor(b,'30005')===1&&sensor(b,'30006')===1},
+      {do:b=>{b.brake='released';L(b,'OPEN: machinery brake released');}, done:b=>b.opTimer>0.5},
+      {do:b=>{b.motor.energized=true;b.motor.dir=+1;L(b,'OPEN: drive RAISE — leaf rotating about trunnion');}, done:b=>!b.motor.energized},
+      {do:b=>{b.brake='set';finishOp(b,'OPEN complete — leaf FULL OPEN');}, done:()=>true},
+    ],
+    close:[
+      {do:b=>{b.railSignal='stop';b.horn=true;L(b,'CLOSE: horn, lowering leaf','warn');}, done:b=>b.opTimer>1.0},
+      {do:b=>{b.brake='released';b.motor.energized=true;b.motor.dir=-1;L(b,'CLOSE: drive LOWER — seating leaf');}, done:b=>!b.motor.energized},
+      {do:b=>{b.brake='set';b.locks.spanLock.cmd='engaged';b.locks.tailLock.cmd='engaged';L(b,'CLOSE: driving locks to ENGAGED');}, done:b=>sensor(b,'30005')===0&&sensor(b,'30006')===0},
+      {do:b=>{b.gates='up';b.railSignal='clear';b.horn=false;finishOp(b,'CLOSE complete — seated, locked, rail CLEAR');}, done:()=>true},
+    ],
+  },
+  swing:{
+    open:[
+      {do:b=>{b.railSignal='stop';b.horn=true;b.gates='down';L(b,'OPEN: horn, signals STOP, gates lowering','warn');}, done:b=>b.opTimer>1.6},
+      {do:b=>{b.locks.railLock.cmd='released';b.locks.wedge.cmd='released';b.locks.endLift.cmd='released';L(b,'OPEN: unlock miter rails, retract wedges + end lifts');}, done:b=>sensor(b,'30005')===1&&sensor(b,'30006')===1&&sensor(b,'30007')===1},
+      {do:b=>{b.centeringLatch='released';b.brake='released';L(b,'OPEN: centering latch released, brake off');}, done:b=>b.opTimer>0.6},
+      {do:b=>{b.motor.energized=true;b.motor.dir=+1;L(b,'OPEN: drive SWING — span rotating about center pivot');}, done:b=>!b.motor.energized},
+      {do:b=>{b.brake='set';finishOp(b,'OPEN complete — span FULL OPEN (90°)');}, done:()=>true},
+    ],
+    close:[
+      {do:b=>{b.railSignal='stop';b.horn=true;L(b,'CLOSE: horn, swinging span back','warn');}, done:b=>b.opTimer>1.0},
+      {do:b=>{b.brake='released';b.motor.energized=true;b.motor.dir=-1;L(b,'CLOSE: drive SWING to center');}, done:b=>!b.motor.energized},
+      {do:b=>{b.brake='set';b.centeringLatch='engaged';b.locks.wedge.cmd='engaged';b.locks.endLift.cmd='engaged';b.locks.railLock.cmd='engaged';L(b,'CLOSE: center latch, drive wedges, raise end lifts, lock rails');}, done:b=>sensor(b,'30005')===0&&sensor(b,'30006')===0&&sensor(b,'30007')===0},
+      {do:b=>{b.gates='up';b.railSignal='clear';b.horn=false;finishOp(b,'CLOSE complete — centered, ends raised, rail CLEAR');}, done:()=>true},
+    ],
+  }
+};
+function stepSequence(b,dt){
+  const seq=SEQS[b.type][b.op]; if(!seq){ b.op=null; return; }
+  const step=seq[b.opStep];
+  if(!b._stepEntered){ b._stepEntered=true; b.opTimer=0; try{step.do(b);}catch(e){} }
+  b.opTimer+=dt;
+  if(step.done(b)){ b.opStep++; b._stepEntered=false; if(b.opStep>=seq.length){ b.op=null; b.opStep=0; } }
+}
+function finishOp(b,msg){ L(b,msg,'ok'); notify(b.name+': '+msg); }
+
+// ── Command coils (operator / HMI level) ────────────────────────────────────
+function commandCoil(b,which){
+  if(which==='stop'){ b.op=null; b.opStep=0; b._stepEntered=false; if(!b._forcedMotor){b.motor.energized=false;b.motor.dir=0;} L(b,'STOP commanded','warn'); return 'stopped'; }
+  if(!plcEnforced){
+    forced[b.id+':'+(which==='open'?'00101':'00102')]=1;
+    forced[b.id+':'+(which==='open'?'00102':'00101')]=0;
+    forced[b.id+':00103']=1;
+    L(b,which.toUpperCase()+'_CMD with interlocks DISABLED — direct drive, no sequencing','attack');
+    return 'direct';
+  }
+  if(which==='open'){
+    if(sensor(b,'30008')===1){ L(b,'INTERLOCK — span occupied, OPEN refused','warn'); notify('Interlock: span occupied — OPEN refused','warn'); return 'interlock'; }
+    if(b.angle>b.angleMax*0.99) return 'already-open';
+  }
+  if(which==='close' && b.angle<b.angleMax*0.01) return 'already-closed';
+  b.op=which; b.opStep=0; b._stepEntered=false;
+  L(b,which.toUpperCase()+' sequence initiated (PLC-validated)','info');
+  return 'sequence';
+}
+
+// ── Modbus point map ────────────────────────────────────────────────────────
+function points(b){
+  const P=[];
+  const add=(addr,cls,name,get,set,desc)=>P.push({addr,cls,name,get,set,desc});
+  add('00001','cmd','OPEN_CMD',()=> (b.op==='open'?1:0), v=>{ if(v) commandCoil(b,'open'); }, 'Request open (PLC interlocks apply)');
+  add('00002','cmd','CLOSE_CMD',()=> (b.op==='close'?1:0), v=>{ if(v) commandCoil(b,'close'); }, 'Request close (PLC interlocks apply)');
+  add('00003','cmd','STOP_CMD',()=>0, v=>{ if(v) commandCoil(b,'stop'); }, 'Halt sequence/motion');
+  add('00101','out',b.type==='swing'?'DRIVE_SWING_OPEN':'MOTOR_RAISE',()=> (b.motor.energized&&b.motor.dir>0?1:0), v=>forceCoil(b,'00101',v), 'Direct drive output — OPEN direction');
+  add('00102','out',b.type==='swing'?'DRIVE_SWING_CLOSE':'MOTOR_LOWER',()=> (b.motor.energized&&b.motor.dir<0?1:0), v=>forceCoil(b,'00102',v), 'Direct drive output — CLOSE direction');
+  add('00103','out','BRAKE_RELEASE',()=> (b.brake==='released'?1:0), v=>forceCoil(b,'00103',v), 'Direct brake solenoid (1=released)');
+  if(b.type==='bascule'){
+    add('00104','out','SPANLOCK_RELEASE',()=> (b.locks.spanLock.cmd==='released'?1:0), v=>forceCoil(b,'00104',v), 'Toe span-lock drive (1=release)');
+    add('00105','out','TAILLOCK_RELEASE',()=> (b.locks.tailLock.cmd==='released'?1:0), v=>forceCoil(b,'00105',v), 'Tail-lock drive (1=release)');
+  } else {
+    add('00104','out','RAILLOCK_RELEASE',()=> (b.locks.railLock.cmd==='released'?1:0), v=>forceCoil(b,'00104',v), 'Miter rail-lock drive (1=release)');
+    add('00105','out','ENDLIFT_RETRACT',()=> (b.locks.endLift.cmd==='released'?1:0), v=>forceCoil(b,'00105',v), 'End-lift jacks (1=retract/lower ends)');
+    add('00106','out','WEDGE_RETRACT',()=> (b.locks.wedge.cmd==='released'?1:0), v=>forceCoil(b,'00106',v), 'Center wedge drive (1=retract)');
+    add('00107','out','CENTERLATCH_REL',()=> (b.centeringLatch==='released'?1:0), v=>forceCoil(b,'00107',v), 'Centering latch (1=release)');
+  }
+  add('00110','out','HORN',()=> (b.horn?1:0), v=>forceCoil(b,'00110',v), 'Warning horn (1=on)');
+  add('00111','out','GATE_LOWER',()=> (b.gates==='down'?1:0), v=>forceCoil(b,'00111',v), 'Warning gates (1=down)');
+  add('40002','hreg','DRIVE_SPEED',()=>driveSpeed, v=>{ driveSpeed=Math.max(1,Math.min(100,v|0)); L(b,'DRIVE_SPEED set '+driveSpeed+'%','info'); }, 'Drive speed setpoint %');
+  add('30001','ireg','POS_ANGLE',()=>sensor(b,'30001'),null,'Position % open (0=seated/centered,100=open)');
+  add('30002','ireg','MOTOR_CURRENT',()=>sensor(b,'30002'),null,'Drive motor current (A)');
+  add('30003','ireg',b.type==='swing'?'CENTERED_LS':'SEATED_LS',()=>sensor(b,'30003'),null,'Limit switch: fully seated/centered');
+  add('30004','ireg','OPEN_LS',()=>sensor(b,'30004'),null,'Limit switch: fully open');
+  if(b.type==='bascule'){
+    add('30005','ireg','SPANLOCK_RELEASED',()=>sensor(b,'30005'),null,'Span (toe) lock released feedback');
+    add('30006','ireg','TAILLOCK_RELEASED',()=>sensor(b,'30006'),null,'Tail lock released feedback');
+  } else {
+    add('30005','ireg','RAILLOCK_RELEASED',()=>sensor(b,'30005'),null,'Miter rail lock released feedback');
+    add('30006','ireg','ENDLIFT_RETRACTED',()=>sensor(b,'30006'),null,'End-lift retracted feedback');
+    add('30007','ireg','WEDGE_RETRACTED',()=>sensor(b,'30007'),null,'Center wedge retracted feedback');
+  }
+  add('30008','ireg','SPAN_OCCUPIED',()=>sensor(b,'30008'),null,'Track occupancy (1=train on span)');
+  return P;
+}
+function forceCoil(b,addr,v){
+  forced[b.id+':'+addr]=v?1:0;
+  const p=points(b).find(x=>x.addr===addr);
+  log(b.name+': OUTPUT FORCED '+addr+' ('+(p?p.name:'')+') = '+(v?1:0)+'  [bypasses PLC]','attack');
+}
+function findPoint(b,addr){ return points(b).find(p=>p.addr===addr); }
+
+// ════════════════════════════════════════════════════════════════════════
+//  NETWORK CONSOLE (Modbus/TCP master emulation)
+// ════════════════════════════════════════════════════════════════════════
+function cwrite(text,cls){
+  const s=document.getElementById('console-scroll');
+  const d=document.createElement('div'); d.className='con-line '+(cls||'con-out'); d.textContent=text;
+  s.appendChild(d); s.scrollTop=s.scrollHeight;
+}
+function classLabel(cls){ return cls==='cmd'?'COIL/cmd':cls==='out'?'COIL/out':cls==='hreg'?'HREG':'IREG'; }
+
+function runConsole(raw){
+  const line=raw.trim(); if(!line) return;
+  cwrite('modbus> '+line,'con-in');
+  const t=line.toLowerCase().split(/\s+/);
+  const b=B();
+  const cmd=t[0];
+  try{
+    if(cmd==='help'||cmd==='?'){
+      cwrite('Commands (target = '+b.name+'):','con-ok');
+      cwrite('  scan                         dump all points + live values');
+      cwrite('  read  <coil|hreg|ireg> <addr>    read one point');
+      cwrite('  write coil <addr> <0|1>      cmd-class -> PLC; out-class -> FORCE (bypass PLC)');
+      cwrite('  write hreg <addr> <val>      write holding register (setpoint)');
+      cwrite('  spoof ireg <addr> <val>      inject a false sensor value (MITM)');
+      cwrite('  unforce <addr> | unforce all     release forced output coil(s)');
+      cwrite('  clearspoof <addr> | clearspoof all   stop spoofing sensor(s)');
+      cwrite('  target <congaree|cooper>     switch target bridge');
+      cwrite('  forces                       list active forces + spoofs');
+      return;
+    }
+    if(cmd==='target'){
+      const id=t[1]; if(bridges[id]){ selectBridge(id); cwrite('target set: '+bridges[id].name,'con-ok'); } else cwrite('unknown bridge. use congaree | cooper','con-err'); return;
+    }
+    if(cmd==='scan'){
+      cwrite('-- '+b.name+' ('+b.type+') @ 192.168.95.10:502 --','con-ok');
+      let cur=null;
+      points(b).forEach(p=>{
+        const grp=classLabel(p.cls);
+        if(grp!==cur){ cwrite(' ['+grp+']'); cur=grp; }
+        const k=b.id+':'+p.addr;
+        let tag=''; if(k in forced) tag=' «FORCED»'; if(k in spoof) tag=' «SPOOFED»';
+        cwrite('   '+p.addr+'  '+p.name.padEnd(18)+' = '+String(p.get()).padEnd(4)+'  '+p.desc+tag, (k in forced||k in spoof)?'con-attack':'con-out');
+      });
+      return;
+    }
+    if(cmd==='forces'){
+      const ff=Object.keys(forced).filter(k=>k.startsWith(b.id+':'));
+      const ss=Object.keys(spoof).filter(k=>k.startsWith(b.id+':'));
+      if(!ff.length&&!ss.length){ cwrite('no active forces or spoofs on '+b.name,'con-ok'); return; }
+      ff.forEach(k=>{ const a=k.split(':')[1]; const p=findPoint(b,a); cwrite('FORCED  '+a+' '+(p?p.name:'')+' = '+forced[k],'con-attack'); });
+      ss.forEach(k=>{ const a=k.split(':')[1]; const p=findPoint(b,a); cwrite('SPOOFED '+a+' '+(p?p.name:'')+' = '+spoof[k],'con-attack'); });
+      return;
+    }
+    if(cmd==='read'){
+      const a=t[2]; const p=findPoint(b,a);
+      if(!p){ cwrite('no such point: '+(a||''),'con-err'); return; }
+      cwrite(p.addr+' '+p.name+' = '+p.get()+'   ('+p.desc+')','con-out'); return;
+    }
+    if(cmd==='write'){
+      const a=t[2]; const val=Number(t[3]);
+      const p=findPoint(b,a);
+      if(!p){ cwrite('no such point: '+(a||''),'con-err'); return; }
+      if(Number.isNaN(val)){ cwrite('need a value','con-err'); return; }
+      if(p.cls==='ireg'){ cwrite('input registers are read-only on the wire — use "spoof ireg" to inject false data','con-warn'); return; }
+      if(!p.set){ cwrite('point not writable','con-err'); return; }
+      p.set(val);
+      if(p.cls==='out') cwrite('FORCED '+p.addr+' '+p.name+' = '+(val?1:0)+'  [PLC bypassed]','con-attack');
+      else if(p.cls==='cmd') cwrite('command '+p.name+' issued','con-ok');
+      else cwrite('wrote '+p.name+' = '+val,'con-ok');
+      return;
+    }
+    if(cmd==='spoof'){
+      const a=t[2]; const val=Number(t[3]); const p=findPoint(b,a);
+      if(!p||p.cls!=='ireg'){ cwrite('spoof targets input registers (30001+). e.g. spoof ireg 30005 1','con-err'); return; }
+      if(Number.isNaN(val)){ cwrite('need a value','con-err'); return; }
+      spoof[b.id+':'+a]=val;
+      cwrite('SPOOF injected: '+p.addr+' '+p.name+' now reports '+val+' regardless of physical state','con-attack');
+      log(b.name+': SENSOR SPOOFED '+a+' ('+p.name+') = '+val+'  [false data injection]','attack');
+      return;
+    }
+    if(cmd==='unforce'){
+      if(t[1]==='all'){ Object.keys(forced).filter(k=>k.startsWith(b.id+':')).forEach(k=>delete forced[k]); cwrite('all forces released on '+b.name,'con-ok'); log(b.name+': all output forces released','info'); return; }
+      const k=b.id+':'+t[1]; if(k in forced){ delete forced[k]; cwrite('force released: '+t[1],'con-ok'); } else cwrite('not forced: '+(t[1]||''),'con-err'); return;
+    }
+    if(cmd==='clearspoof'){
+      if(t[1]==='all'){ Object.keys(spoof).filter(k=>k.startsWith(b.id+':')).forEach(k=>delete spoof[k]); cwrite('all spoofs cleared on '+b.name,'con-ok'); return; }
+      const k=b.id+':'+t[1]; if(k in spoof){ delete spoof[k]; cwrite('spoof cleared: '+t[1],'con-ok'); } else cwrite('not spoofed: '+(t[1]||''),'con-err'); return;
+    }
+    cwrite('unknown command: '+cmd+'  (try "help")','con-err');
+  }catch(e){ cwrite('error: '+e.message,'con-err'); }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  LOG + NOTIFY
+// ════════════════════════════════════════════════════════════════════════
+let logCount=0;
+function log(msg,cls){
+  const s=document.getElementById('log-scroll');
+  const d=document.createElement('div'); d.className='log-entry '+(cls||'');
+  const now=new Date().toLocaleTimeString('en-US',{hour12:false});
+  d.innerHTML='<span class="lt">'+now+'</span>'+escapeHtml(msg);
+  s.appendChild(d); s.scrollTop=s.scrollHeight;
+  while(s.children.length>400) s.removeChild(s.firstChild);
+  logCount++; document.getElementById('log-count').textContent=logCount;
+}
+function escapeHtml(x){ return String(x).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function notify(msg,cls){
+  const w=document.getElementById('notif-wrap');
+  const d=document.createElement('div'); d.className='notif '+(cls||''); d.textContent=msg;
+  w.appendChild(d);
+  setTimeout(()=>{ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(()=>d.remove(),400); }, 3200);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  RENDERING
+// ════════════════════════════════════════════════════════════════════════
+function stateOf(b){
+  if(b.damage.rackPinion>=100||b.damage.structure>=100) return {t:'FAULTED',c:'v-purple'};
+  if(b.op) return {t:(b.op==='open'?'OPENING':'CLOSING'),c:'v-amber'};
+  if(b.angle<b.angleMax*0.02) return {t:'CLOSED · rail clear',c:'v-green'};
+  if(b.angle>b.angleMax*0.98) return {t:'OPEN · rail blocked',c:'v-red'};
+  return {t:'PARTIAL '+Math.round(b.angle/b.angleMax*100)+'%',c:'v-amber'};
+}
+let _bridgeListBuilt=false;
+function buildBridgeList(){
+  const el=document.getElementById('bridge-list'); el.innerHTML='';
+  for(const id in bridges){ const b=bridges[id];
+    const card=document.createElement('div');
+    card.className='bridge-pick'+(id===sel?' active':'');
+    card.dataset.id=id;
+    card.addEventListener('click',()=>selectBridge(id));
+    card.innerHTML='<div class="bp-name">'+b.name+'</div>'
+      +'<div class="bp-type">'+(b.type==='bascule'?'BASCULE · tilting leaf':'SWING · rotating span')+'</div>'
+      +'<div class="bp-state"></div>';
+    el.appendChild(card);
+  }
+  _bridgeListBuilt=true;
+}
+function renderBridgeList(){
+  if(!_bridgeListBuilt){ buildBridgeList(); }
+  const el=document.getElementById('bridge-list');
+  el.querySelectorAll('.bridge-pick').forEach(card=>{
+    const id=card.dataset.id; const b=bridges[id]; const st=stateOf(b);
+    card.classList.toggle('active', id===sel);
+    const sd=card.querySelector('.bp-state');
+    sd.className='bp-state '+st.c; sd.textContent=st.t;
+  });
+}
+function bar(v){ const c=v>=100?'var(--accent-red)':v>=50?'var(--accent-amber)':v>0?'var(--accent-cyan)':'var(--accent-green)';
+  return '<div class="dmg-bar"><div style="width:'+Math.min(100,v)+'%;background:'+c+'"></div></div>'; }
+function rowel(name,valHtml){ return '<div class="subsys"><span class="ss-name">'+name+'</span><span class="ss-val">'+valHtml+'</span></div>'; }
+function lockTxt(l,engLabel,relLabel){
+  if(l.faulted) return '<span class="v-purple">FAULTED</span>';
+  if(l.pos>0.9) return '<span class="v-green">'+engLabel+'</span>';
+  if(l.pos<0.1) return '<span class="v-amber">'+relLabel+'</span>';
+  return '<span class="v-cyan">'+Math.round(l.pos*100)+'%</span>';
+}
+function renderTelemetry(){
+  const b=B(); let h='';
+  const sig=b.railSignal==='clear'?'<span class="v-green">CLEAR</span>':'<span class="v-red">STOP</span>';
+  const horn=b.horn?'<span class="v-amber">SOUNDING</span>':'<span class="v-dim">silent</span>';
+  const gates=b.gates==='up'?'<span class="v-green">UP</span>':'<span class="v-red">DOWN</span>';
+  const brake=b.brake==='set'?'<span class="v-green">SET</span>':'<span class="v-amber">RELEASED</span>';
+  const motor=b.motor.energized?('<span class="v-amber">'+(b.motor.dir>0?'OPEN':'CLOSE')+' '+Math.round(b.motor.current)+'A</span>'):'<span class="v-dim">off</span>';
+  h+=rowel('Position',('<span class="v-cyan">'+Math.round(b.angle/b.angleMax*100)+'% ('+b.angle.toFixed(1)+'°)</span>'));
+  h+=rowel('Rail Signal',sig);
+  h+=rowel('Warning Gates',gates);
+  h+=rowel('Horn',horn);
+  h+=rowel('Drive Motor',motor);
+  h+=rowel('Machinery Brake',brake);
+  if(b.type==='bascule'){
+    h+=rowel('Span (toe) Lock',lockTxt(b.locks.spanLock,'ENGAGED','RELEASED'));
+    h+=rowel('Tail Lock',lockTxt(b.locks.tailLock,'ENGAGED','RELEASED'));
+    h+=rowel('Counterweight','<span class="v-green">balanced</span>');
+  } else {
+    h+=rowel('Centering Latch',b.centeringLatch==='engaged'?'<span class="v-green">ENGAGED</span>':'<span class="v-amber">RELEASED</span>');
+    h+=rowel('Center Wedges',lockTxt(b.locks.wedge,'DRIVEN','RETRACTED'));
+    h+=rowel('End Lifts',lockTxt(b.locks.endLift,'RAISED','RETRACTED'));
+    h+=rowel('Miter Rail Locks',lockTxt(b.locks.railLock,'LOCKED','UNLOCKED'));
+  }
+  h+=rowel('Span Occupied',b.occupied?'<span class="v-red">TRAIN ON SPAN</span>':'<span class="v-dim">clear</span>');
+  h+='<div class="subsys" style="border-top:1px solid var(--border-color);"><span class="ss-name" style="color:var(--text-secondary);">DAMAGE</span><span></span></div>';
+  const dmgNames=b.type==='bascule'
+    ? {rackPinion:'Rack / Pinion',spanLock:'Span Lock',tailLock:'Tail Lock',shoes:'Live-load Shoes',trunnion:'Trunnion',structure:'Structure'}
+    : {rackPinion:'Rack / Pinion',railLock:'Rail Locks',endLift:'End Lifts',wedge:'Wedges',pivot:'Pivot Bearing',structure:'Structure'};
+  for(const k in dmgNames){ h+=rowel(dmgNames[k],bar(b.damage[k])); }
+  document.getElementById('telemetry').innerHTML=h;
+}
+function renderRegisters(){
+  const b=B();
+  document.getElementById('reg-bridge').textContent='192.168.95.10 · '+b.id;
+  let h='';
+  points(b).forEach(p=>{
+    const k=b.id+':'+p.addr;
+    const clsName={cmd:'cls-cmd',out:'cls-out',hreg:'cls-hreg',ireg:'cls-ireg'}[p.cls];
+    const clsTxt={cmd:'CMD',out:'OUT',hreg:'HR',ireg:'IR'}[p.cls];
+    let valCls=''; if(k in forced) valCls='reg-forced'; if(k in spoof) valCls='reg-spoof';
+    let mark=''; if(k in forced) mark=' ⚡'; if(k in spoof) mark=' ✦';
+    h+='<tr title="'+p.desc.replace(/"/g,'')+'"><td class="reg-addr">'+p.addr+'</td>'
+      +'<td><span class="reg-class '+clsName+'">'+clsTxt+'</span></td>'
+      +'<td>'+p.name+'</td>'
+      +'<td class="'+valCls+'">'+p.get()+mark+'</td></tr>';
+  });
+  document.getElementById('regbody').innerHTML=h;
+}
+
+// ── Schematics ──────────────────────────────────────────────────────────────
+function spanColor(b){
+  if(b.damage.rackPinion>=100||b.damage.structure>=100) return {f:'#2a103a',s:'#b061ff'};
+  if(b.angle<b.angleMax*0.02) return {f:'#06281c',s:'#00e676'};
+  if(b.angle>b.angleMax*0.98) return {f:'#3a1010',s:'#ff3d3d'};
+  return {f:'#2a2000',s:'#ffb300'};
+}
+function statusStrip(b){
+  const dot=(on,col)=> '<circle r="4" fill="'+(on?col:'#22303f')+'"/>';
+  return ''
+    +'<g transform="translate(20,24)" font-size="9" fill="#5c7a99">'
+    +'<g transform="translate(0,0)">'+dot(b.horn,'#ffb300')+'<text x="9" y="3">HORN</text></g>'
+    +'<g transform="translate(70,0)">'+dot(b.gates==="down","#ff3d3d")+'<text x="9" y="3">GATES</text></g>'
+    +'<g transform="translate(150,0)">'+dot(b.railSignal==="stop","#ff3d3d")+'<text x="9" y="3">SIGNAL</text></g>'
+    +'<g transform="translate(235,0)">'+dot(b.brake==="released","#ffb300")+'<text x="9" y="3">BRAKE OFF</text></g>'
+    +'<g transform="translate(345,0)">'+dot(b.occupied,"#ff3d3d")+'<text x="9" y="3">OCCUPIED</text></g>'
+    +'</g>';
+}
+function trussDiag(x0,x1,yt,yb,c){ let s=''; for(let x=x0;x<x1;x+=16){ s+='<line x1="'+x+'" y1="'+yt+'" x2="'+(x+10)+'" y2="'+yb+'" stroke="'+c+'" stroke-width="0.6" opacity="0.5"/>'; } return s; }
+function trussV(x0,x1,yt,yb,c){ let s=''; for(let x=x0;x<x1;x+=24){ s+='<line x1="'+x+'" y1="'+yt+'" x2="'+x+'" y2="'+yb+'" stroke="'+c+'" stroke-width="0.6" opacity="0.5"/>'; } return s; }
+
+function drawBascule(b){
+  const col=spanColor(b);
+  const ang=b.angle;
+  const occ = b.occupied? '<rect x="200" y="135" width="34" height="10" rx="2" fill="#2a3a4a" stroke="#5c7a99"/>':'';
+  return '<svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg">'
+    +'<rect x="0" y="210" width="520" height="90" fill="#08161f"/>'
+    +'<rect x="0" y="210" width="520" height="3" fill="#0e2433"/>'
+    + statusStrip(b)
+    +'<rect x="120" y="150" width="54" height="80" fill="#16222e" stroke="#2a3f55"/>'
+    +'<rect x="392" y="150" width="48" height="80" fill="#16222e" stroke="#2a3f55"/>'
+    +'<rect x="384" y="146" width="12" height="8" fill="'+(b.locks.spanLock.faulted?'#b061ff':b.locks.spanLock.pos>0.5?'#00e676':'#ffb300')+'"/>'
+    +'<g transform="rotate('+(-ang)+' 170 150)">'
+      +'<rect x="120" y="150" width="44" height="34" rx="2" fill="#3a3a22" stroke="#7a7a44"/>'
+      +'<text x="142" y="171" text-anchor="middle" font-size="8" fill="#aaaa66">CW</text>'
+      +'<rect x="170" y="143" width="222" height="13" rx="2" fill="'+col.f+'" stroke="'+col.s+'" stroke-width="2"/>'
+      + trussDiag(176,388,143,156,col.s)
+      + occ
+      +'<path d="M 188 158 A 22 22 0 0 1 210 162" fill="none" stroke="#4a6a8a" stroke-width="2"/>'
+    +'</g>'
+    +'<circle cx="170" cy="150" r="7" fill="#0d1520" stroke="'+col.s+'" stroke-width="2"/>'
+    +'<circle cx="170" cy="150" r="2.5" fill="'+col.s+'"/>'
+    +'<circle cx="196" cy="166" r="5" fill="#16222e" stroke="#4a6a8a"/>'
+    +'<line x1="452" y1="150" x2="452" y2="'+(b.gates==='down'?186:150)+'" stroke="'+(b.gates==='down'?'#ff3d3d':'#3a5068')+'" stroke-width="3"/>'
+    +'<line x1="452" y1="'+(b.gates==='down'?186:150)+'" x2="'+(b.gates==='down'?420:452)+'" y2="'+(b.gates==='down'?186:150)+'" stroke="'+(b.gates==='down'?'#ff3d3d':'#3a5068')+'" stroke-width="3"/>'
+    +'<text x="142" y="246" text-anchor="middle" font-size="9" fill="#5c7a99">PIER / TRUNNION</text>'
+    +'<text x="416" y="246" text-anchor="middle" font-size="9" fill="#5c7a99">REST PIER</text>'
+    +'<text x="280" y="290" text-anchor="middle" font-size="10" fill="'+col.s+'">BASCULE — side elevation · leaf rotates about trunnion</text>'
+    +'</svg>';
+}
+function drawSwing(b){
+  const col=spanColor(b);
+  const ang=b.angle;
+  const endCol = b.locks.endLift.faulted?'#b061ff':b.locks.endLift.pos>0.5?'#00e676':'#ffb300';
+  const railCol = b.locks.railLock.faulted?'#b061ff':b.locks.railLock.pos>0.5?'#00e676':'#ffb300';
+  const wedgeCol = b.locks.wedge.faulted?'#b061ff':b.locks.wedge.pos>0.5?'#00e676':'#ffb300';
+  const occ = b.occupied? '<rect x="-17" y="-7" width="34" height="14" rx="2" fill="#2a3a4a" stroke="#5c7a99"/>':'';
+  return '<svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg">'
+    +'<rect x="0" y="0" width="520" height="300" fill="#08161f"/>'
+    +'<rect x="0" y="0" width="95" height="300" fill="#0d1a14"/>'
+    +'<rect x="425" y="0" width="95" height="300" fill="#0d1a14"/>'
+    + statusStrip(b)
+    +'<rect x="72" y="132" width="30" height="36" fill="#16222e" stroke="#2a3f55"/>'
+    +'<rect x="418" y="132" width="30" height="36" fill="#16222e" stroke="#2a3f55"/>'
+    +'<rect x="92" y="140" width="8" height="20" fill="'+endCol+'"/>'
+    +'<rect x="420" y="140" width="8" height="20" fill="'+endCol+'"/>'
+    +'<rect x="88" y="146" width="6" height="8" fill="'+railCol+'"/>'
+    +'<rect x="426" y="146" width="6" height="8" fill="'+railCol+'"/>'
+    +'<g transform="rotate('+ang+' 260 150)">'
+      +'<rect x="80" y="138" width="360" height="24" rx="3" fill="'+col.f+'" stroke="'+col.s+'" stroke-width="2"/>'
+      + trussV(96,424,138,162,col.s)
+      +'<rect x="244" y="132" width="32" height="6" fill="'+wedgeCol+'"/>'
+      +'<rect x="244" y="162" width="32" height="6" fill="'+wedgeCol+'"/>'
+      +'<g transform="translate(260,150)">'+occ+'</g>'
+    +'</g>'
+    +'<circle cx="260" cy="150" r="26" fill="#0d1520" stroke="#2a3f55" stroke-width="2"/>'
+    +'<circle cx="260" cy="150" r="9" fill="#16222e" stroke="'+col.s+'" stroke-width="2"/>'
+    +'<circle cx="260" cy="150" r="3" fill="'+col.s+'"/>'
+    +'<line x1="408" y1="168" x2="408" y2="'+(b.gates==='down'?192:168)+'" stroke="'+(b.gates==='down'?'#ff3d3d':'#3a5068')+'" stroke-width="3"/>'
+    +'<line x1="408" y1="'+(b.gates==='down'?192:168)+'" x2="'+(b.gates==='down'?380:408)+'" y2="'+(b.gates==='down'?192:168)+'" stroke="'+(b.gates==='down'?'#ff3d3d':'#3a5068')+'" stroke-width="3"/>'
+    +'<text x="87" y="184" text-anchor="middle" font-size="8" fill="#5c7a99">END PIER</text>'
+    +'<text x="433" y="184" text-anchor="middle" font-size="8" fill="#5c7a99">END PIER</text>'
+    +'<text x="260" y="200" text-anchor="middle" font-size="8" fill="#5c7a99">CENTER PIVOT</text>'
+    +'<text x="260" y="290" text-anchor="middle" font-size="10" fill="'+col.s+'">SWING — plan view · span rotates about center pivot</text>'
+    +'</svg>';
+}
+function renderSchematic(){
+  const b=B();
+  document.getElementById('schematic').innerHTML = b.type==='bascule'?drawBascule(b):drawSwing(b);
+  document.getElementById('schematic-title').textContent = (b.type==='bascule'?'BASCULE':'SWING')+' — '+b.name;
+  document.getElementById('angle-badge').textContent = Math.round(b.angle/b.angleMax*100)+'%  ·  '+b.angle.toFixed(1)+'°';
+}
+
+function render(){
+  renderBridgeList(); renderTelemetry(); renderRegisters(); renderSchematic();
+  const b=B();
+  document.getElementById('btn-open').disabled = b.angle>b.angleMax*0.98 || !!b.op;
+  document.getElementById('btn-close').disabled = b.angle<b.angleMax*0.02 || !!b.op;
+  document.getElementById('btn-stop').disabled = !b.op && !isMoving(b);
+  document.getElementById('op-mode').textContent = b.op?('▸ '+b.op.toUpperCase()+' seq'):'';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  UI HANDLERS
+// ════════════════════════════════════════════════════════════════════════
+function setRate(n){ simRate=n; ['0','1','3','8'].forEach(r=>document.getElementById('rate-'+r).classList.toggle('active', String(n)===r)); }
+function selectBridge(id){ if(!bridges[id])return; sel=id; render(); }
+function toggleOcc(){ const b=B(); b.occupied=!b.occupied; document.getElementById('tg-occ').classList.toggle('on',b.occupied);
+  log(b.name+': track occupancy '+(b.occupied?'SET — train on span':'cleared'), b.occupied?'warn':'info'); render(); }
+function togglePlc(){ plcEnforced=!plcEnforced; const t=document.getElementById('tg-plc');
+  t.classList.toggle('on',!plcEnforced); t.style.background=plcEnforced?'var(--accent-green)':'';
+  document.getElementById('plc-status').textContent='PLC Interlocks: '+(plcEnforced?'ENFORCED':'DISABLED');
+  document.getElementById('plc-dot').className='status-dot '+(plcEnforced?'':'error');
+  log('PLC interlock enforcement '+(plcEnforced?'ENABLED':'DISABLED — command coils now act as direct drives'), plcEnforced?'info':'attack'); }
+function repairBridge(){
+  const id=sel; const fresh = bridges[id].type==='bascule'?makeBascule():makeSwing();
+  bridges[id]=fresh;
+  Object.keys(forced).filter(k=>k.startsWith(id+':')).forEach(k=>delete forced[k]);
+  Object.keys(spoof).filter(k=>k.startsWith(id+':')).forEach(k=>delete spoof[k]);
+  recountFaults(); log(fresh.name+': reset to nominal — all damage, forces, spoofs cleared','ok'); notify(fresh.name+': reset complete'); render();
+}
+function opOpen(){ commandCoil(B(),'open'); }
+function opClose(){ commandCoil(B(),'close'); }
+function opStop(){ commandCoil(B(),'stop'); }
+
+// ════════════════════════════════════════════════════════════════════════
+//  TRAINING SCENARIOS
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS=[
+  { title:'1 — Reconnaissance: enumerate the field device',
+    meta:'ATT&CK for ICS · T0846 Remote System Discovery · T0888 Remote System Information Discovery',
+    target:'congaree',
+    desc:'Before touching anything, map the Modbus point space. An unauthenticated Modbus/TCP slave answers any master. Read the register map and identify command coils, forcible outputs, and the sensors the PLC trusts.',
+    steps:['target congaree','scan','read ireg 30001','read ireg 30005'],
+    lesson:'No authentication, no encryption — enumeration alone reveals the entire control surface. Detection: unexpected Modbus session from a non-HMI source; baseline which masters should ever talk to this slave.' },
+  { title:'2 — Unauthorized OPEN via command coil',
+    meta:'ATT&CK for ICS · T0855 Unauthorized Command Message',
+    target:'congaree',
+    desc:'You do not need to defeat safety to cause an unauthorized state change. Writing the OPEN command coil is honored because Modbus has no concept of who you are. The PLC still runs its interlocks, so the bridge opens SAFELY — but without authorization, blocking rail traffic on command.',
+    steps:['target congaree','write coil 00001 1'],
+    lesson:'Availability/integrity impact with zero mechanical damage. The HMI is not a security boundary — write access = control. Detection: command with no matching operator action, outside maintenance windows, wrong source IP.' },
+  { title:'3 — Output forcing: drive against the locks',
+    meta:'ATT&CK for ICS · T0831 Manipulation of Control · T0821 Modify Controller Tasking',
+    target:'congaree',
+    desc:'Now defeat safety. Force the motor RAISE output directly while the span locks are still engaged. This bypasses the PLC ladder logic entirely — the pinion torques against locked bars. Watch MOTOR_CURRENT spike to stall while POS_ANGLE does not move, then the rack/pinion strips.',
+    steps:['target congaree','repair','write coil 00101 1'],
+    lesson:'Forcing a physical output bypasses every interlock written in the PLC. Mechanical, unrecoverable damage. Detection: forced-I/O alarms, stall current with no position change, command-vs-feedback deviation.' },
+  { title:'4 — Sensor spoofing: lie to the interlock',
+    meta:'ATT&CK for ICS · T0856 Spoof Reporting Message · T0832 Manipulation of View',
+    target:'congaree',
+    desc:'The PLC decides motion is safe by reading lock-released feedback. Inject false data so the locks REPORT released while physically engaged, then issue a normal OPEN. The "safe" sequence drives the motor into engaged locks — the Stuxnet pattern: the controller acts correctly on corrupted truth.',
+    steps:['target congaree','repair','spoof ireg 30005 1','spoof ireg 30006 1','write coil 00001 1'],
+    lesson:'Interlocks are only as trustworthy as their sensors. Even a perfectly-programmed PLC is defeated by false feedback. Detection: physically inconsistent readings (lock released but stall current present); redundant/diverse sensing.' },
+  { title:'5 — Swing bridge: rotate on the jacks',
+    meta:'ATT&CK for ICS · T0831 Manipulation of Control',
+    target:'cooper',
+    desc:'The swing bridge has a deeper interlock chain. Its signature failure: rotating while the end-lift jacks still carry the span. Force the swing drive while end lifts remain engaged — the rotating span drags its jacked-up ends sideways and shears the lift machinery.',
+    steps:['target cooper','repair','write coil 00101 1'],
+    lesson:'Type-specific mechanics create type-specific attacks. The swing end-lifts/wedges/rail-locks are extra out-of-sequence targets a bascule does not have. Detection: drive energized while END_LIFT_RETRACTED=0.' },
+  { title:'6 — Defeat the limit, over-travel the span',
+    meta:'ATT&CK for ICS · T0856 Spoof Reporting Message · T0879 Damage to Property',
+    target:'cooper',
+    desc:'Spoof the OPEN limit switch to read not-reached, THEN issue a normal OPEN. The PLC never sees the span arrive at 90°, so its own sequence keeps driving the span past full-open into the end stops — rack, pinion, and structure take damage. No forcing required; the legitimate command path is weaponized by lying about position.',
+    steps:['target cooper','repair','spoof ireg 30004 0','write coil 00001 1'],
+    lesson:'Hard-wired, independent over-travel cutouts — not PLC logic reading a spoofable sensor — are what stop this. Safety-critical limits must not depend solely on a network-reachable controller.' },
+  { title:'7 — Open under load (catastrophe)',
+    meta:'ATT&CK for ICS · T0879 Damage to Property · T0880 Loss of Safety',
+    target:'congaree',
+    desc:'The track-occupancy interlock is the last line. Put a train on the span, spoof SPAN_OCCUPIED clear, then command OPEN. The PLC believes the span is empty and lifts the leaf under the train.',
+    steps:['target congaree','repair'],
+    lesson:'This is why occupancy protection should be a hard-wired Safety Instrumented System independent of the PLC. To run: toggle "Train on span" ON, then in console: spoof ireg 30008 0  then  write coil 00001 1' },
+];
+function openScenarios(){
+  const el=document.getElementById('scn-list'); let h='';
+  SCENARIOS.forEach((s,i)=>{
+    h+='<div class="scn"><h3>'+s.title+'</h3>'
+      +'<div class="scn-meta scn-attack">'+s.meta+'</div>'
+      +'<p>'+s.desc+'</p>'
+      +'<div class="scn-steps"><b>console:</b>\n'+s.steps.join('\n')+'</div>'
+      +'<button class="scn-run" onclick="runScenario('+i+')">▶ Run in console</button>'
+      +'<div class="scn-lesson">'+s.lesson+'</div></div>';
+  });
+  el.innerHTML=h; document.getElementById('modal-bg').classList.add('show');
+}
+function closeScenarios(){ document.getElementById('modal-bg').classList.remove('show'); }
+function runScenario(i){
+  const s=SCENARIOS[i]; closeScenarios();
+  if(s.target) selectBridge(s.target);
+  log('▶ SCENARIO '+s.title,'attack');
+  let d=200;
+  s.steps.forEach(step=>{
+    setTimeout(()=>{ if(step==='repair'){ repairBridge(); } else { runConsole(step); } }, d);
+    d+= (step==='scan')?900:550;
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  CROSS-FILE SYNC  (shares bridge open/close state with debian9_index.html)
+//  Mechanism: localStorage (same-origin host) + BroadcastChannel for live push.
+//  The trainer models Congaree (br1) and Cooper (br2); those mirror the rail HMI.
+// ════════════════════════════════════════════════════════════════════════
+function syncStateOf(b){
+  if(b.op==='open' || (b._forcedMotor && b.motor.dir>0)) return 'opening';
+  if(b.op==='close'|| (b._forcedMotor && b.motor.dir<0)) return 'closing';
+  if(b.angle>=b.angleMax*0.98) return 'open';
+  if(b.angle<=b.angleMax*0.02) return 'closed';
+  return null; // partial / stopped midway — don't publish a discrete change
+}
+function applyRemoteBridge(id, openFrac, state){
+  const b=bridges[id]; if(!b) return;
+  if(state==='open'   && b.angle>=b.angleMax*0.98){ b._syncLast='open';  return; }
+  if(state==='closed' && b.angle<=b.angleMax*0.02){ b._syncLast='closed';return; }
+  if(state==='opening'&& syncStateOf(b)==='opening'){ b._syncLast='opening'; return; }
+  if(state==='closing'&& syncStateOf(b)==='closing'){ b._syncLast='closing'; return; }
+  applyingRemote=true;
+  if(state==='open'){
+    b.op=null;b.opStep=0;b._stepEntered=false; b.angle=b.angleMax; b.brake='set';
+    for(const k in b.locks){ b.locks[k].cmd='released'; b.locks[k].pos=0; }
+    if(b.type==='swing') b.centeringLatch='released';
+    b.railSignal='stop'; b.gates='down'; b.horn=false;
+  } else if(state==='closed'){
+    b.op=null;b.opStep=0;b._stepEntered=false; b.angle=0; b.brake='set';
+    for(const k in b.locks){ b.locks[k].cmd='engaged'; b.locks[k].pos=1; b.locks[k].faulted=false; }
+    if(b.type==='swing') b.centeringLatch='engaged';
+    b.railSignal='clear'; b.gates='up'; b.horn=false;
+  } else if(state==='opening'){
+    if(syncStateOf(b)!=='opening' && b.angle<b.angleMax*0.98) commandCoil(b,'open');
+  } else if(state==='closing'){
+    if(syncStateOf(b)!=='closing' && b.angle>b.angleMax*0.02) commandCoil(b,'close');
+  }
+  b._syncLast=state;
+  applyingRemote=false;
+  recountFaults();
+  if(id===sel) render();
+  log(b.name+': \u2194 mirrored '+String(state).toUpperCase()+' from Donovia Rail HMI','info');
+}
+const BridgeSync=(function(){
+  const KEY='scrail_bridge_sync_v1';
+  const ORIGIN=Math.random().toString(36).slice(2);
+  let bc=null; try{ if('BroadcastChannel' in window) bc=new BroadcastChannel('scrail_bridges'); }catch(e){}
+  function publish(id,state,openFrac){
+    if(applyingRemote) return;
+    const rec={id,state,openFrac,origin:ORIGIN,t:Date.now()};
+    try{ const snap=JSON.parse(localStorage.getItem(KEY)||'{}'); snap[id]=rec; localStorage.setItem(KEY,JSON.stringify(snap)); }catch(e){}
+    if(bc){ try{ bc.postMessage(rec); }catch(e){} }
+  }
+  function handle(rec){ if(!rec||rec.origin===ORIGIN) return; applyRemoteBridge(rec.id,rec.openFrac,rec.state); }
+  if(bc) bc.onmessage=e=>handle(e.data);
+  try{ window.addEventListener('storage',e=>{ if(e.key!==KEY||!e.newValue) return; try{ const snap=JSON.parse(e.newValue); for(const id in snap) handle(snap[id]); }catch(err){} }); }catch(e){}
+  function loadInitial(){ try{ const snap=JSON.parse(localStorage.getItem(KEY)||'{}'); for(const id in snap){ const r=snap[id]; if(r.origin!==ORIGIN) applyRemoteBridge(r.id,r.openFrac,r.state); } }catch(e){} }
+  return { publish, loadInitial };
+})();
+
+// ════════════════════════════════════════════════════════════════════════
+//  MAIN LOOP + INIT
+// ════════════════════════════════════════════════════════════════════════
+let lastTs=0, renderAcc=0;
+function loop(ts){
+  const wall=lastTs?(ts-lastTs):16; lastTs=ts;
+  const dt=Math.min(0.1,(wall/1000))*simRate;
+  if(dt>0){ for(const id in bridges) physics(bridges[id],dt); }
+  // publish bridge state transitions to the rail HMI
+  for(const id in bridges){ const b=bridges[id]; const s=syncStateOf(b); if(s && s!==b._syncLast){ b._syncLast=s; BridgeSync.publish(id,s,b.angle/b.angleMax); } }
+  renderAcc+=wall;
+  if(renderAcc>50){ renderAcc=0; render(); }
+  requestAnimationFrame(loop);
+}
+function init(){
+  setRate(1); recountFaults(); buildBridgeList(); render();
+  cwrite('Modbus/TCP master ready. Target: Congaree River Bridge (bascule) @ 192.168.95.10:502','con-ok');
+  cwrite('Slave is unauthenticated. Type "help" for commands, or open TRAINING SCENARIOS (top-right).','con-out');
+  log('Bridge Mechanical & SCADA Trainer initialized','info');
+  log('2 movable bridges modeled: Congaree (bascule), Cooper (swing) — mirrors Donovia Rail Network Control','info');
+  log('Drive a CORRECT open/close first to learn the sequence, then run attack scenarios','info');
+  BridgeSync.loadInitial();
+  log('Cross-file sync active — open/close mirrors the Donovia Rail HMI on this host','ok');
+  const ci=document.getElementById('console-input');
+  ci.addEventListener('keydown',e=>{ if(e.key==='Enter'){ runConsole(ci.value); ci.value=''; } });
+  requestAnimationFrame(loop);
+}
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
