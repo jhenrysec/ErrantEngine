@@ -1,11 +1,11 @@
-# Bridge_Usage.md — TrainTracks Operator & Adversary Guide
+# Bridge_Usage.md — ErrantEngine Operator & Adversary Guide
 
-**Scope.** How to operate both apps in the TrainTracks lab (`rail.html` dispatcher HMI and
+**Scope.** How to operate both apps in the ErrantEngine lab (`rail.html` dispatcher HMI and
 `trainer.html` mechanical/SCADA trainer), followed by a catalog of the **vectors of compromise** the
 trainer models and an **exploitability** assessment of each. Built for 17C instruction in an
 air-gapped Donovia Rail scenario.
 
-**Important framing.** TrainTracks is a *defensive training simulator*. It contains no live protocol
+**Important framing.** ErrantEngine is a *defensive training simulator*. It contains no live protocol
 stack, no real device I/O, and no exploit tooling — it is a single-page model of an idealized bridge
 controller. The "attack" actions below are commands inside the trainer's own teaching console; their
 real-world analogs are publicly documented ICS weakness classes (unauthenticated Modbus, forced I/O,
